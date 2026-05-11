@@ -1,19 +1,31 @@
 import React, { useCallback, useRef } from 'react';
 import { Icon } from './Icon';
 import { useStore } from '../store/useStore';
-import { formatBytes } from '../lib/format';
+import { uploadScans } from '../utils/api';
 
 export default function Upload({ compact = false }) {
-  const { addFiles, uploading } = useStore();
+  const { addFiles, uploading, setUploading, setError, clearError } = useStore();
   const inputRef = useRef(null);
 
   const handle = useCallback(
-    (files) => {
+    async (files) => {
       const arr = Array.from(files || []);
       if (!arr.length) return;
-      addFiles(arr);
+      clearError();
+      setUploading(true, 0);
+      try {
+        const uploaded = await uploadScans(arr, {
+          onProgress: (progress) => setUploading(true, progress),
+        });
+        addFiles(uploaded);
+      } catch (error) {
+        setError(error?.response?.data?.detail || error?.message || 'Upload failed.');
+      } finally {
+        setUploading(false, 0);
+        if (inputRef.current) inputRef.current.value = '';
+      }
     },
-    [addFiles]
+    [addFiles, clearError, setError, setUploading]
   );
 
   if (compact) {
@@ -29,7 +41,7 @@ export default function Upload({ compact = false }) {
           hidden
           type="file"
           multiple
-          accept="image/*,.dcm"
+          accept="image/*,.dcm,.nii,.nii.gz"
           onChange={(e) => handle(e.target.files)}
         />
       </button>
@@ -59,7 +71,7 @@ export default function Upload({ compact = false }) {
       <div className="flex items-center justify-between mb-3">
         <div className="eyebrow">Upload</div>
         <div className="text-[10px] font-mono text-faint">
-          PNG · JPG · DICOM · up to 100MB
+          PNG · JPG · DICOM · NIfTI · up to 100MB
         </div>
       </div>
 
@@ -79,14 +91,14 @@ export default function Upload({ compact = false }) {
           <span className="text-muted"> or click to browse</span>
         </div>
         <div className="text-[11px] font-mono text-faint">
-          {uploading ? 'Uploading…' : 'single or multi-series'}
+          {uploading ? 'Uploading to local backend…' : 'single or multi-series'}
         </div>
         <input
           ref={inputRef}
           hidden
           type="file"
           multiple
-          accept="image/*,.dcm"
+          accept="image/*,.dcm,.nii,.nii.gz"
           onChange={(e) => handle(e.target.files)}
         />
       </button>

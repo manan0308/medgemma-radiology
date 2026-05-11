@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { useStore } from '../store/useStore';
+import { deleteUploadedFile } from '../utils/api';
 import { modalityAbbr, formatBytes, relativeTime } from '../lib/format';
 
 function Thumb({ file, size = 56 }) {
@@ -35,6 +36,7 @@ export default function GalleryStrip() {
     removeFile,
     comparisonMode,
     results,
+    setError,
   } = useStore();
 
   if (!files.length) return null;
@@ -115,8 +117,15 @@ export default function GalleryStrip() {
             )}
 
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
+                if (f.serverBacked) {
+                  try {
+                    await deleteUploadedFile(f.id);
+                  } catch (error) {
+                    setError(error?.response?.data?.detail || error?.message || 'Failed to delete uploaded file.');
+                  }
+                }
                 removeFile(f.id);
               }}
               className="absolute top-1 right-1 w-5 h-5 rounded-sm opacity-0 group-hover:opacity-100 flex items-center justify-center"

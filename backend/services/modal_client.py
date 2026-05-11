@@ -1,21 +1,51 @@
-import httpx
 import base64
+import asyncio
 import os
 from typing import Dict, Optional
-import asyncio
+
+import httpx
 
 # Timeout for Modal requests (model inference can take a while)
-MODAL_TIMEOUT = 120.0
+MODAL_TIMEOUT = 300.0
 
 
-def get_modal_analyze_url() -> Optional[str]:
-    """Normalize Modal config to the concrete analyze route."""
+def get_modal_route_url(route: str) -> Optional[str]:
+    """Normalize Modal config to the concrete route."""
     modal_endpoint_url = os.getenv("MODAL_ENDPOINT_URL", "").strip()
     if not modal_endpoint_url:
         return None
-    if modal_endpoint_url.endswith("/analyze"):
+    route = route if route.startswith("/") else f"/{route}"
+    if modal_endpoint_url.endswith(route):
         return modal_endpoint_url
-    return f"{modal_endpoint_url.rstrip('/')}/analyze"
+    return f"{modal_endpoint_url.rstrip('/')}{route}"
+
+
+def get_modal_analyze_url() -> Optional[str]:
+    return get_modal_route_url("/analyze")
+
+
+def get_modal_compare_url() -> Optional[str]:
+    return get_modal_route_url("/compare")
+
+
+async def _post_modal_json(route_url: str, payload: dict) -> Dict[str, Optional[str]]:
+    async with httpx.AsyncClient(timeout=MODAL_TIMEOUT, follow_redirects=True) as client:
+        response = await client.post(
+            route_url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+
+        content_type = response.headers.get("content-type", "")
+        if "application/json" not in content_type.lower():
+            body_preview = (response.text or "")[:240]
+            raise ValueError(f"Unexpected Modal response ({content_type}): {body_preview}")
+
+        data = response.json()
+        if data.get("eli5") and not data.get("simple"):
+            data["simple"] = data["eli5"]
+        return data
 
 
 async def analyze_image(
@@ -57,30 +87,55 @@ async def analyze_image(
         "generate_heatmap": generate_heatmap,
     }
 
-    async with httpx.AsyncClient(timeout=MODAL_TIMEOUT) as client:
-        try:
-            response = await client.post(
-                modal_url,
-                json=payload,
-                headers={"Content-Type": "application/json"}
-            )
-            response.raise_for_status()
-            data = response.json()
-            if data.get("eli5") and not data.get("simple"):
-                data["simple"] = data["eli5"]
-            return data
-        except httpx.TimeoutException:
-            return {
-                "error": "Analysis timed out. Please try again."
-            }
-        except httpx.HTTPStatusError as e:
-            return {
-                "error": f"Modal service error: {e.response.status_code}"
-            }
-        except Exception as e:
-            return {
-                "error": f"Failed to connect to analysis service: {str(e)}"
-            }
+    try:
+        return await _post_modal_json(modal_url, payload)
+    except httpx.TimeoutException:
+        return {
+            "error": "Analysis timed out. Please try again."
+        }
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": f"Modal service error: {e.response.status_code}"
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to connect to analysis service: {str(e)}"
+        }
+
+
+async def compare_images(
+    current_image_bytes: bytes,
+    prior_image_bytes: bytes,
+    modality: str = "general",
+    context: Optional[dict] = None,
+) -> Dict[str, Optional[str]]:
+    modal_url = get_modal_compare_url()
+    if not modal_url:
+        return {
+            "comparison": "Comparison service is not configured. Set MODAL_ENDPOINT_URL to enable live interval analysis."
+        }
+
+    payload = {
+        "current_image_base64": base64.b64encode(current_image_bytes).decode("utf-8"),
+        "prior_image_base64": base64.b64encode(prior_image_bytes).decode("utf-8"),
+        "modality": modality,
+        "context": context,
+    }
+
+    try:
+        return await _post_modal_json(modal_url, payload)
+    except httpx.TimeoutException:
+        return {
+            "error": "Comparison timed out. Please try again."
+        }
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": f"Modal comparison service error: {e.response.status_code}"
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to connect to comparison service: {str(e)}"
+        }
 
 
 async def check_modal_health() -> bool:
@@ -89,7 +144,7 @@ async def check_modal_health() -> bool:
     if not modal_url:
         return False
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
             # Just check if the endpoint exists (OPTIONS request)
             response = await client.options(modal_url)
             return response.status_code < 500

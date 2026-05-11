@@ -7,3 +7,4 @@ pydicom>=2.4.0
 httpx>=0.26.0
 python-dotenv>=1.0.0
 aiofiles>=23.2.0
+nibabel>=5.2.0

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { useStore } from '../store/useStore';
+import { fetchServiceStatus } from '../utils/api';
 
 export default function TopBar() {
   const {
@@ -14,6 +15,53 @@ export default function TopBar() {
     setActivePane,
     files,
   } = useStore();
+  const [status, setStatus] = React.useState({
+    backend_status: 'checking',
+    modal_configured: false,
+    modal_reachable: false,
+  });
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const refresh = async () => {
+      try {
+        const next = await fetchServiceStatus();
+        if (!cancelled) setStatus(next);
+      } catch {
+        if (!cancelled) {
+          setStatus({
+            backend_status: 'offline',
+            modal_configured: false,
+            modal_reachable: false,
+          });
+        }
+      }
+    };
+
+    refresh();
+    const timer = window.setInterval(refresh, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const statusDot =
+    status.backend_status !== 'healthy'
+      ? 'var(--danger)'
+      : status.modal_reachable
+        ? 'var(--ok)'
+        : 'oklch(0.72 0.14 85)';
+
+  const statusLabel =
+    status.backend_status !== 'healthy'
+      ? 'API offline'
+      : status.modal_reachable
+        ? 'API live · Modal reachable'
+        : status.modal_configured
+          ? 'API live · Modal waking'
+          : 'API live · Modal not configured';
 
   return (
     <header className="h-14 surface border-0 border-b border-line flex items-center px-4 gap-3 shrink-0" style={{ borderRadius: 0 }}>
@@ -61,9 +109,9 @@ export default function TopBar() {
       <div className="flex items-center gap-2 pr-2">
         <span
           className="w-1.5 h-1.5 rounded-full"
-          style={{ background: 'var(--ok)' }}
+          style={{ background: statusDot }}
         />
-        <span className="eyebrow">MedGemma 1.5 · A10G · warm</span>
+        <span className="eyebrow">{statusLabel}</span>
       </div>
 
       {/* View toggle */}

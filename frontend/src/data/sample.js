@@ -26,6 +26,32 @@ Marked interval **progression** is visible on the follow-up MRI-derived view, wi
 3. Showcase note: this demo uses GliODIL-derived tissue maps and lesion masks rather than raw DICOM slices.`,
 };
 
+function cannedReport(title, bullets, impression) {
+  return {
+    technical: `### Examination
+Curated showcase image.
+
+### Technique
+Dataset-derived PNG exported from a source archive that originally shipped as parquet or NIfTI.
+
+### Findings
+${bullets.map((line) => `- ${line}`).join('\n')}
+
+### Impression
+${impression.map((line, index) => `${index + 1}. ${line}`).join('\n')}`,
+    simple: `${title}
+
+${bullets.join(' ')}
+
+${impression.join(' ')}`,
+    findings: bullets.map((line, index) => ({
+      severity: index === 0 ? 'info' : 'ok',
+      label: `Finding ${index + 1}`,
+      value: line,
+    })),
+  };
+}
+
 function buildPriorAnalysis() {
   return {
     technical: `### Examination
@@ -123,6 +149,241 @@ export function getLongitudinalDemoSession() {
     ],
   };
 }
+
+const SAMPLE_PACKS = {
+  brain_mri: {
+    label: 'Brain MRI PNGs',
+    modality: 'brain_mri',
+    patientContext: {
+      chief_complaint: 'Brain tumor showcase set',
+    },
+    files: [
+      {
+        id: 'pack-mri-prior',
+        name: 'gliodil-539-prior.png',
+        size: 164_000,
+        type: 'image/png',
+        preview: '/loadable-samples/brain-mri/gliodil-539-prior.png',
+        placeholderLabel: 'MRI · Brain · Prior',
+        sampleModality: 'brain_mri',
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 120,
+        resultTemplate: cannedReport(
+          'Earlier brain MRI demo view.',
+          [
+            'Blue overlay marks baseline tumor burden for GliODIL case 539.',
+            'Derived lesion burden is smaller than the follow-up progression view.',
+          ],
+          [
+            'Good prior study for longitudinal compare mode.',
+            'Derived showcase image only, not a diagnostic DICOM slice.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-mri-current',
+        name: 'gliodil-539-followup.png',
+        size: 172_000,
+        type: 'image/png',
+        preview: '/loadable-samples/brain-mri/gliodil-539-current.png',
+        placeholderLabel: 'MRI · Brain · Follow-up',
+        sampleModality: 'brain_mri',
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 7,
+        resultTemplate: cannedReport(
+          'Later brain MRI demo view.',
+          [
+            'Orange overlay marks larger follow-up tumor burden for GliODIL case 539.',
+            'This sample is useful for showing visible interval progression.',
+          ],
+          [
+            'Marked increase compared with the paired prior view.',
+            'Derived showcase image only, not a diagnostic DICOM slice.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-mri-glioma',
+        name: 'aio-glioma.png',
+        size: 96_000,
+        type: 'image/png',
+        preview: '/loadable-samples/brain-mri/glioma.png',
+        placeholderLabel: 'MRI · Glioma',
+        sampleModality: 'brain_mri',
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 3,
+        resultTemplate: cannedReport(
+          'Glioma sample exported from parquet.',
+          [
+            'Parquet-backed brain MRI image converted to plain PNG.',
+            'Useful for verifying the app can load dataset-derived MRI without extra preprocessing.',
+          ],
+          [
+            'Loadable through the current UI.',
+            'Converted from AIOmarRehan/Brain_Tumor_MRI_Dataset.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-mri-meningioma',
+        name: 'aio-meningioma.png',
+        size: 94_000,
+        type: 'image/png',
+        preview: '/loadable-samples/brain-mri/meningioma.png',
+        placeholderLabel: 'MRI · Meningioma',
+        sampleModality: 'brain_mri',
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 2,
+        resultTemplate: cannedReport(
+          'Meningioma sample exported from parquet.',
+          [
+            'Dataset image was originally stored in parquet and converted to browser-loadable PNG.',
+            'Useful as a second tumor-class MRI example.',
+          ],
+          [
+            'Good fallback sample if you do not want the longitudinal pair.',
+            'Converted from AIOmarRehan/Brain_Tumor_MRI_Dataset.',
+          ]
+        ),
+      },
+    ],
+  },
+  chest_xray: {
+    label: 'Chest X-ray PNGs',
+    modality: 'chest_xray',
+    patientContext: {
+      chief_complaint: 'Chest radiograph showcase set',
+    },
+    files: [
+      {
+        id: 'pack-cxr-normal',
+        name: 'cxr-normal.png',
+        size: 138_000,
+        type: 'image/png',
+        preview: '/loadable-samples/chest-xray/normal.png',
+        placeholderLabel: 'CXR · Normal',
+        sampleModality: 'chest_xray',
+        timestamp: Date.now() - 1000 * 60 * 60 * 18,
+        resultTemplate: cannedReport(
+          'Normal chest X-ray sample.',
+          [
+            'Parquet-backed chest X-ray converted to PNG.',
+            'No comparison setup required; useful for a quick single-image smoke test.',
+          ],
+          [
+            'Straightforward sample for basic app validation.',
+            'Converted from hf-vision/chest-xray-pneumonia.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-cxr-pneumonia',
+        name: 'cxr-pneumonia.png',
+        size: 140_000,
+        type: 'image/png',
+        preview: '/loadable-samples/chest-xray/pneumonia.png',
+        placeholderLabel: 'CXR · Pneumonia',
+        sampleModality: 'chest_xray',
+        timestamp: Date.now() - 1000 * 60 * 60 * 12,
+        resultTemplate: cannedReport(
+          'Pneumonia chest X-ray sample.',
+          [
+            'Dataset image was originally stored in parquet and converted to PNG.',
+            'Useful if you want an abnormal X-ray example in the current uploader.',
+          ],
+          [
+            'Loadable without touching the parquet shard directly.',
+            'Converted from hf-vision/chest-xray-pneumonia.',
+          ]
+        ),
+      },
+    ],
+  },
+  chest_ct: {
+    label: 'Chest CT PNGs',
+    modality: 'general',
+    patientContext: {
+      chief_complaint: 'Chest CT showcase set',
+    },
+    files: [
+      {
+        id: 'pack-ct-normal',
+        name: 'ct-normal.png',
+        size: 112_000,
+        type: 'image/png',
+        preview: '/loadable-samples/chest-ct/normal.png',
+        placeholderLabel: 'CT · Chest · Normal',
+        sampleModality: 'ct_abdomen',
+        timestamp: Date.now() - 1000 * 60 * 60 * 10,
+        resultTemplate: cannedReport(
+          'Normal chest CT slice.',
+          [
+            'Plain PNG slice copied from the downloaded CT dataset.',
+            'Useful for validating that CT-like imagery displays correctly in the current app.',
+          ],
+          [
+            'Current app can show this immediately because it is already a PNG.',
+            'Converted from Mahadih534/Chest_CT-Scan_images-Dataset.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-ct-adeno',
+        name: 'ct-adenocarcinoma.png',
+        size: 114_000,
+        type: 'image/png',
+        preview: '/loadable-samples/chest-ct/adenocarcinoma.png',
+        placeholderLabel: 'CT · Chest · Adenocarcinoma',
+        sampleModality: 'ct_abdomen',
+        timestamp: Date.now() - 1000 * 60 * 60 * 9,
+        resultTemplate: cannedReport(
+          'Chest CT adenocarcinoma sample.',
+          [
+            'Downloaded CT slice that is already loadable in the UI.',
+            'Handy abnormal CT example without any NIfTI conversion step.',
+          ],
+          [
+            'Best used with the general prompt today.',
+            'Converted from Mahadih534/Chest_CT-Scan_images-Dataset.',
+          ]
+        ),
+      },
+      {
+        id: 'pack-ct-squamous',
+        name: 'ct-squamous.png',
+        size: 116_000,
+        type: 'image/png',
+        preview: '/loadable-samples/chest-ct/squamous.png',
+        placeholderLabel: 'CT · Chest · Squamous',
+        sampleModality: 'ct_abdomen',
+        timestamp: Date.now() - 1000 * 60 * 60 * 8,
+        resultTemplate: cannedReport(
+          'Chest CT squamous carcinoma sample.',
+          [
+            'Additional abnormal CT slice for broader showcase coverage.',
+            'Useful when you want more than one CT disease example in the current UI.',
+          ],
+          [
+            'Loadable immediately as a PNG.',
+            'Converted from Mahadih534/Chest_CT-Scan_images-Dataset.',
+          ]
+        ),
+      },
+    ],
+  },
+};
+
+export function getSamplePack(key) {
+  const pack = SAMPLE_PACKS[key];
+  if (!pack) return null;
+  return {
+    ...pack,
+    files: pack.files.map((file) => ({ ...file })),
+  };
+}
+
+export const SAMPLE_PACK_LIST = Object.entries(SAMPLE_PACKS).map(([key, value]) => ({
+  key,
+  label: value.label,
+  modality: value.modality,
+  count: value.files.length,
+}));
 
 export const SAMPLE_HISTORY = [
   {

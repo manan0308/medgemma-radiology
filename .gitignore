@@ -48,3 +48,4 @@ datasets/GliODIL/*
 !datasets/GliODIL/showcase/
 !datasets/GliODIL/showcase/*.png
 datasets/hf_downloads/
+datasets/converted/

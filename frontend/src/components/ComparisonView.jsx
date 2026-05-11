@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { useStore } from '../store/useStore';
-import { compareImages } from '../utils/api';
+import { compareUploadedFiles } from '../utils/api';
 import { modalityAbbr, renderReport } from '../lib/format';
 
 const SAMPLE_COMPARISON = `### Interval changes
@@ -106,16 +106,18 @@ export default function ComparisonView() {
     clearError();
     setComparing(true);
     try {
-      if (!current.file || !p.file) {
-        await new Promise((r) => setTimeout(r, 1600));
-        setComparisonResult({ comparison: demoPair?.comparison || SAMPLE_COMPARISON });
-      } else {
-        const r = await compareImages(current.file, p.file, {
+      if (current.serverBacked && p.serverBacked) {
+        const r = await compareUploadedFiles(current.id, p.id, {
           modality,
           context: Object.keys(patientContext).length ? patientContext : null,
         });
         if (r.error) setError(r.error);
         else setComparisonResult(r);
+      } else if (!current.serverBacked && !p.serverBacked) {
+        await new Promise((r) => setTimeout(r, 1600));
+        setComparisonResult({ comparison: demoPair?.comparison || SAMPLE_COMPARISON });
+      } else {
+        setError('Please compare two uploaded studies or two demo studies, not a mix of both.');
       }
     } catch (e) {
       setError(e.message || 'Comparison failed.');

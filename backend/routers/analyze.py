@@ -1,15 +1,27 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
 import os
-import asyncio
 
-from models.schemas import AnalyzeRequest, AnalyzeResponse, AnalysisResult
+from models.schemas import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    AnalysisResult,
+    CompareRequest,
+    CompareResponse,
+)
 from services.preprocessing import preprocess_image
-from services.modal_client import get_analyzer
+from services.modal_client import compare_images, get_analyzer
 
 router = APIRouter()
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
+
+
+def find_preview_image_path(file_id: str) -> str | None:
+    for ext in [".png", ".jpg", ".jpeg"]:
+        path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
+        if os.path.exists(path):
+            return path
+    return None
 
 
 async def analyze_single_image(
@@ -21,13 +33,7 @@ async def analyze_single_image(
     generate_heatmap: bool = False,
 ) -> AnalysisResult:
     """Analyze a single image"""
-    # Find the image file
-    image_path = None
-    for ext in [".png", ".jpg", ".jpeg"]:
-        path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
-        if os.path.exists(path):
-            image_path = path
-            break
+    image_path = find_preview_image_path(file_id)
 
     if not image_path:
         return AnalysisResult(
@@ -68,6 +74,7 @@ async def analyze_single_image(
             technical=result.get("technical"),
             simple=result.get("simple") or result.get("eli5"),
             eli5=result.get("eli5") or result.get("simple"),
+            heatmap=result.get("heatmap"),
         )
 
     except Exception as e:
@@ -135,6 +142,50 @@ async def analyze_images(request: AnalyzeRequest):
     )
 
 
+@router.post("/compare", response_model=CompareResponse)
+async def compare_uploaded_images(request: CompareRequest):
+    current_path = find_preview_image_path(request.current_file_id)
+    prior_path = find_preview_image_path(request.prior_file_id)
+
+    if not current_path or not prior_path:
+        raise HTTPException(status_code=404, detail="One or both comparison images could not be found")
+
+    try:
+        with open(current_path, "rb") as handle:
+            current_bytes = handle.read()
+        with open(prior_path, "rb") as handle:
+            prior_bytes = handle.read()
+
+        processed_current, _ = preprocess_image(current_bytes, os.path.basename(current_path))
+        processed_prior, _ = preprocess_image(prior_bytes, os.path.basename(prior_path))
+
+        result = await compare_images(
+            processed_current,
+            processed_prior,
+            modality=request.modality,
+            context=request.context,
+        )
+
+        if "error" in result:
+            return CompareResponse(
+                success=False,
+                message="Comparison failed",
+                error=result["error"],
+            )
+
+        return CompareResponse(
+            success=True,
+            comparison=result.get("comparison"),
+            current_heatmap=result.get("current_heatmap"),
+            prior_heatmap=result.get("prior_heatmap"),
+            message="Comparison complete",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/analyze/quick")
 async def quick_analyze(file_id: str, mode: str = "both"):
     """
@@ -158,4 +209,5 @@ async def quick_analyze(file_id: str, mode: str = "both"):
         "technical": result.technical,
         "simple": result.simple,
         "eli5": result.eli5,
+        "heatmap": result.heatmap,
     }

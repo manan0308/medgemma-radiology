@@ -1,0 +1,73 @@
+{
+  "brain_mri": [
+    {
+      "key": "glioma",
+      "path": "/loadable-samples/brain-mri/glioma.png",
+      "source": "AIOmarRehan/Brain_Tumor_MRI_Dataset"
+    },
+    {
+      "key": "meningioma",
+      "path": "/loadable-samples/brain-mri/meningioma.png",
+      "source": "AIOmarRehan/Brain_Tumor_MRI_Dataset"
+    },
+    {
+      "key": "no-tumor",
+      "path": "/loadable-samples/brain-mri/no-tumor.png",
+      "source": "AIOmarRehan/Brain_Tumor_MRI_Dataset"
+    },
+    {
+      "key": "pituitary",
+      "path": "/loadable-samples/brain-mri/pituitary.png",
+      "source": "AIOmarRehan/Brain_Tumor_MRI_Dataset"
+    },
+    {
+      "key": "gliodil-539-prior",
+      "path": "/loadable-samples/brain-mri/gliodil-539-prior.png",
+      "source": "m1balcerak/GliODIL"
+    },
+    {
+      "key": "gliodil-539-current",
+      "path": "/loadable-samples/brain-mri/gliodil-539-current.png",
+      "source": "m1balcerak/GliODIL"
+    },
+    {
+      "key": "gliodil-539-overlay",
+      "path": "/loadable-samples/brain-mri/gliodil-539-overlay.png",
+      "source": "m1balcerak/GliODIL"
+    }
+  ],
+  "chest_xray": [
+    {
+      "key": "normal",
+      "path": "/loadable-samples/chest-xray/normal.png",
+      "source": "hf-vision/chest-xray-pneumonia"
+    },
+    {
+      "key": "pneumonia",
+      "path": "/loadable-samples/chest-xray/pneumonia.png",
+      "source": "hf-vision/chest-xray-pneumonia"
+    }
+  ],
+  "chest_ct": [
+    {
+      "key": "normal",
+      "path": "/loadable-samples/chest-ct/normal.png",
+      "source": "Mahadih534/Chest_CT-Scan_images-Dataset"
+    },
+    {
+      "key": "adenocarcinoma",
+      "path": "/loadable-samples/chest-ct/adenocarcinoma.png",
+      "source": "Mahadih534/Chest_CT-Scan_images-Dataset"
+    },
+    {
+      "key": "large-cell",
+      "path": "/loadable-samples/chest-ct/large-cell.png",
+      "source": "Mahadih534/Chest_CT-Scan_images-Dataset"
+    },
+    {
+      "key": "squamous",
+      "path": "/loadable-samples/chest-ct/squamous.png",
+      "source": "Mahadih534/Chest_CT-Scan_images-Dataset"
+    }
+  ]
+}

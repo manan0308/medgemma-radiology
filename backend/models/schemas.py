@@ -37,6 +37,7 @@ class AnalysisResult(BaseModel):
     technical: Optional[str] = None
     simple: Optional[str] = None
     eli5: Optional[str] = None
+    heatmap: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -45,3 +46,21 @@ class AnalyzeResponse(BaseModel):
     success: bool
     results: List[AnalysisResult]
     message: str
+
+
+class CompareRequest(BaseModel):
+    """Request for comparing two uploaded studies"""
+    current_file_id: str
+    prior_file_id: str
+    modality: str = "general"
+    context: Optional[dict] = None
+
+
+class CompareResponse(BaseModel):
+    """Comparison response"""
+    success: bool
+    comparison: Optional[str] = None
+    current_heatmap: Optional[str] = None
+    prior_heatmap: Optional[str] = None
+    message: str
+    error: Optional[str] = None

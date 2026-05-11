@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
 from typing import List
 import os
@@ -8,6 +8,7 @@ import aiofiles
 
 from models.schemas import UploadResponse, FileInfo
 from services.dicom_handler import is_dicom_file, process_dicom
+from services.nifti_handler import process_nifti
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ def validate_file(filename: str, size: int) -> None:
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"File type not allowed. Supported types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
     if size > MAX_FILE_SIZE:
         raise HTTPException(
@@ -38,8 +39,12 @@ def validate_file(filename: str, size: int) -> None:
         )
 
 
+def build_preview_url(request: Request, filename: str) -> str:
+    return str(request.url_for("uploads", path=filename))
+
+
 @router.post("/upload", response_model=UploadResponse)
-async def upload_files(files: List[UploadFile] = File(...)):
+async def upload_files(request: Request, files: List[UploadFile] = File(...)):
     """
     Upload one or more medical image files
 
@@ -86,11 +91,37 @@ async def upload_files(files: List[UploadFile] = File(...)):
                         content_type="application/dicom",
                         size=file_size,
                         upload_time=datetime.now(),
-                        preview_url=f"/uploads/{preview_filename}",
-                        metadata=metadata
+                        preview_url=build_preview_url(request, preview_filename),
+                        metadata={**metadata, "source_format": "dicom"}
                     )
                 except Exception as e:
                     errors.append(f"{file.filename}: Failed to process DICOM - {str(e)}")
+                    continue
+            elif ext in {".nii", ".nii.gz"}:
+                try:
+                    png_bytes, _, metadata = process_nifti(content, file.filename)
+
+                    preview_filename = f"{file_id}.png"
+                    preview_path = os.path.join(UPLOAD_DIR, preview_filename)
+                    async with aiofiles.open(preview_path, "wb") as f:
+                        await f.write(png_bytes)
+
+                    original_filename = f"{file_id}{ext}"
+                    original_path = os.path.join(UPLOAD_DIR, original_filename)
+                    async with aiofiles.open(original_path, "wb") as f:
+                        await f.write(content)
+
+                    file_info = FileInfo(
+                        id=file_id,
+                        filename=file.filename,
+                        content_type=file.content_type or "application/gzip",
+                        size=file_size,
+                        upload_time=datetime.now(),
+                        preview_url=build_preview_url(request, preview_filename),
+                        metadata=metadata
+                    )
+                except Exception as e:
+                    errors.append(f"{file.filename}: Failed to process NIfTI - {str(e)}")
                     continue
             else:
                 # Regular image file
@@ -105,8 +136,8 @@ async def upload_files(files: List[UploadFile] = File(...)):
                     content_type=file.content_type or "image/png",
                     size=file_size,
                     upload_time=datetime.now(),
-                    preview_url=f"/uploads/{save_filename}",
-                    metadata=None
+                    preview_url=build_preview_url(request, save_filename),
+                    metadata={"source_format": ext.lstrip(".")}
                 )
 
             uploaded_files.append(file_info)
@@ -137,7 +168,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
 async def get_image(file_id: str):
     """Get uploaded image by ID"""
     # Look for the file with any extension
-    for ext in [".png", ".jpg", ".jpeg", ".dcm"]:
+    for ext in [".png", ".jpg", ".jpeg", ".dcm", ".nii", ".nii.gz"]:
         file_path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
         if os.path.exists(file_path):
             return FileResponse(file_path)
@@ -149,7 +180,7 @@ async def get_image(file_id: str):
 async def delete_image(file_id: str):
     """Delete uploaded image"""
     deleted = False
-    for ext in [".png", ".jpg", ".jpeg", ".dcm"]:
+    for ext in [".png", ".jpg", ".jpeg", ".dcm", ".nii", ".nii.gz"]:
         file_path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
         if os.path.exists(file_path):
             os.remove(file_path)

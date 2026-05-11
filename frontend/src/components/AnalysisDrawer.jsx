@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from './Icon';
 import { useStore } from '../store/useStore';
-import { analyzeWithModal } from '../utils/api';
+import { analyzeUploadedFile } from '../utils/api';
 import { renderReport, modalityAbbr } from '../lib/format';
 import { SAMPLE_REPORT_SIMPLE, SAMPLE_REPORT_TECHNICAL } from '../data/sample';
 
@@ -45,7 +45,6 @@ export default function AnalysisDrawer() {
     modality,
     patientContext,
     generateHeatmap,
-    setGenerateHeatmap,
     coldStart,
     setColdStart,
     tweaks,
@@ -65,8 +64,16 @@ export default function AnalysisDrawer() {
     setColdStart(true);
     const coldTimer = setTimeout(() => setColdStart(false), 6000);
     try {
-      // If the file is a sample (no raw File), populate a canned result for demo.
-      if (!file.file) {
+      if (file.serverBacked) {
+        const r = await analyzeUploadedFile(file.id, {
+          mode: 'both',
+          modality,
+          context: Object.keys(patientContext).length ? patientContext : null,
+          generateHeatmap,
+        });
+        if (r.error) setError(r.error);
+        else setResult(file.id, r);
+      } else if (!file.file) {
         await new Promise((r) => setTimeout(r, 1800));
         setResult(
           file.id,
@@ -77,14 +84,7 @@ export default function AnalysisDrawer() {
           }
         );
       } else {
-        const r = await analyzeWithModal(file.file, {
-          mode: 'both',
-          modality,
-          context: Object.keys(patientContext).length ? patientContext : null,
-          generateHeatmap,
-        });
-        if (r.error) setError(r.error);
-        else setResult(file.id, r);
+        setError('This file is not connected to the backend upload flow.');
       }
     } catch (e) {
       setError(e.message || 'Analysis failed.');

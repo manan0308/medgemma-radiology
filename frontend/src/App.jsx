@@ -14,7 +14,8 @@ import ComparisonView from './components/ComparisonView';
 import PDFPreview from './components/PDFPreview';
 import TweaksPanel from './components/TweaksPanel';
 import DisclaimerModal from './components/DisclaimerModal';
-import { getLongitudinalDemoSession } from './data/sample';
+import { getLongitudinalDemoSession, getSamplePack, SAMPLE_PACK_LIST } from './data/sample';
+import { deleteUploadedFile } from './utils/api';
 
 function Sidebar() {
   const {
@@ -31,11 +32,37 @@ function Sidebar() {
     setPriorFile,
     setModality,
     setPatientContext,
+    setError,
   } = useStore();
   const hasFiles = files.length > 0;
 
-  const loadLongitudinalDemo = () => {
+  const clearRemoteFiles = async () => {
+    const remoteFiles = files.filter((file) => file.serverBacked);
+    await Promise.all(
+      remoteFiles.map((file) =>
+        deleteUploadedFile(file.id).catch(() => {
+          setError(`Could not clean up uploaded file ${file.name}.`);
+        })
+      )
+    );
+  };
+
+  const loadPack = async (packKey) => {
+    const pack = getSamplePack(packKey);
+    if (!pack) return;
+    await clearRemoteFiles();
+    clearSession();
+    setComparisonResult(null);
+    setComparisonMode(false);
+    const added = addFiles(pack.files);
+    setModality(pack.modality);
+    setPatientContext(pack.patientContext || {});
+    if (added[0]) selectFile(added[0].id);
+  };
+
+  const loadLongitudinalDemo = async () => {
     const demo = getLongitudinalDemoSession();
+    await clearRemoteFiles();
     clearSession();
     const added = addFiles(demo.files);
     const prior = added.find((file) => file.demoRole === 'prior');
@@ -72,6 +99,26 @@ function Sidebar() {
         </div>
       )}
 
+      <div className="surface p-3 space-y-2">
+        <div className="eyebrow">Converted Dataset Samples</div>
+        <div className="text-[11px] text-muted leading-relaxed">
+          These are dataset-derived PNGs exported from `.parquet` and `.nii.gz`, so they load in
+          the current app without extra conversion.
+        </div>
+        <div className="grid gap-2">
+          {SAMPLE_PACK_LIST.map((pack) => (
+            <button
+              key={pack.key}
+              className="btn btn-sm btn-ghost justify-between"
+              onClick={() => loadPack(pack.key)}
+            >
+              <span>{pack.label}</span>
+              <span className="font-mono text-[10px] text-faint">{pack.count} files</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <ModalityPicker />
 
       {/* Toggles */}
@@ -96,7 +143,13 @@ function Sidebar() {
       <div className="grow-1" />
 
       {hasFiles && (
-        <button className="btn btn-sm btn-ghost" onClick={clearSession}>
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={async () => {
+            await clearRemoteFiles();
+            clearSession();
+          }}
+        >
           <Icon name="x" size={12} />
           Clear session
         </button>

@@ -7,6 +7,7 @@ import os
 load_dotenv()
 
 from routers import upload, analyze
+from services.modal_client import check_modal_health
 
 app = FastAPI(
     title="MedGemma Analyzer API",
@@ -17,7 +18,12 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,6 +43,18 @@ app.include_router(analyze.router, prefix="/api", tags=["analyze"])
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "medgemma-analyzer"}
+
+
+@app.get("/api/status")
+async def service_status():
+    """Combined backend + Modal status for the frontend."""
+    modal_configured = bool(os.getenv("MODAL_ENDPOINT_URL", "").strip())
+    modal_reachable = await check_modal_health() if modal_configured else False
+    return {
+        "backend_status": "healthy",
+        "modal_configured": modal_configured,
+        "modal_reachable": modal_reachable,
+    }
 
 
 @app.get("/")
