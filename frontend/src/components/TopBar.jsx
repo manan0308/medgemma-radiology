@@ -14,6 +14,8 @@ export default function TopBar() {
     activePane,
     setActivePane,
     files,
+    results,
+    selectedFileId,
   } = useStore();
   const [status, setStatus] = React.useState({
     backend_status: 'checking',
@@ -63,6 +65,9 @@ export default function TopBar() {
           ? 'API live · Modal waking'
           : 'API live · Modal not configured';
 
+  const canCompare = files.length >= 2;
+  const canExport = Boolean(selectedFileId && results[selectedFileId]);
+
   return (
     <header className="h-14 surface border-0 border-b border-line flex items-center px-4 gap-3 shrink-0" style={{ borderRadius: 0 }}>
       {/* Brand */}
@@ -86,21 +91,35 @@ export default function TopBar() {
           { id: 'compare', label: 'Compare', icon: 'compare' },
           { id: 'history', label: 'History', icon: 'history' },
           { id: 'export', label: 'Export', icon: 'download' },
-        ].map((p) => (
-          <button
-            key={p.id}
-            onClick={() => {
-              setActivePane(p.id);
-              if (p.id === 'compare' && !comparisonMode) setComparisonMode(true);
-              if (p.id !== 'compare' && comparisonMode) setComparisonMode(false);
-            }}
-            className={`btn btn-sm ${activePane === p.id ? 'chip-active' : 'btn-ghost'}`}
-            style={activePane === p.id ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)', borderColor: 'transparent' } : {}}
-          >
-            <Icon name={p.icon} size={13} />
-            {p.label}
-          </button>
-        ))}
+        ].map((p) => {
+          const disabled =
+            (p.id === 'compare' && !canCompare) || (p.id === 'export' && !canExport);
+
+          return (
+            <button
+              key={p.id}
+              onClick={() => {
+                if (disabled) return;
+                setActivePane(p.id);
+                if (p.id === 'compare' && !comparisonMode) setComparisonMode(true);
+                if (p.id !== 'compare' && comparisonMode) setComparisonMode(false);
+              }}
+              className={`btn btn-sm ${activePane === p.id ? 'chip-active' : 'btn-ghost'}`}
+              style={activePane === p.id ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)', borderColor: 'transparent' } : {}}
+              disabled={disabled}
+              title={
+                p.id === 'compare' && disabled
+                  ? 'Load two studies or the MRI walkthrough first.'
+                  : p.id === 'export' && disabled
+                    ? 'Analyze a study before exporting.'
+                    : undefined
+              }
+            >
+              <Icon name={p.icon} size={13} />
+              {p.label}
+            </button>
+          );
+        })}
       </nav>
 
       <div className="grow-1" />

@@ -9,6 +9,22 @@ load_dotenv()
 from routers import upload, analyze
 from services.modal_client import check_modal_health
 
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+
+def get_allowed_origins():
+    extra_origins = [
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+    return list(dict.fromkeys(DEFAULT_ALLOWED_ORIGINS + extra_origins))
+
 app = FastAPI(
     title="MedGemma Analyzer API",
     description="API for medical image analysis using MedGemma",
@@ -18,12 +34,7 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

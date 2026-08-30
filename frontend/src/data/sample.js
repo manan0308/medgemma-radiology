@@ -309,7 +309,7 @@ const SAMPLE_PACKS = {
         type: 'image/png',
         preview: '/loadable-samples/chest-ct/normal.png',
         placeholderLabel: 'CT · Chest · Normal',
-        sampleModality: 'ct_abdomen',
+        sampleModality: 'general',
         timestamp: Date.now() - 1000 * 60 * 60 * 10,
         resultTemplate: cannedReport(
           'Normal chest CT slice.',
@@ -330,7 +330,7 @@ const SAMPLE_PACKS = {
         type: 'image/png',
         preview: '/loadable-samples/chest-ct/adenocarcinoma.png',
         placeholderLabel: 'CT · Chest · Adenocarcinoma',
-        sampleModality: 'ct_abdomen',
+        sampleModality: 'general',
         timestamp: Date.now() - 1000 * 60 * 60 * 9,
         resultTemplate: cannedReport(
           'Chest CT adenocarcinoma sample.',
@@ -351,7 +351,7 @@ const SAMPLE_PACKS = {
         type: 'image/png',
         preview: '/loadable-samples/chest-ct/squamous.png',
         placeholderLabel: 'CT · Chest · Squamous',
-        sampleModality: 'ct_abdomen',
+        sampleModality: 'general',
         timestamp: Date.now() - 1000 * 60 * 60 * 8,
         resultTemplate: cannedReport(
           'Chest CT squamous carcinoma sample.',

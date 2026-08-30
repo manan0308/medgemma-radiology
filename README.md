@@ -1,364 +1,149 @@
-# MedScan AI
+# MedGamma Radiology
 
-Medical image analysis powered by Google's **MedGemma 1.5 4B** model. Upload CT scans, MRIs, or X-rays and get professional radiology-style reports plus plain-English explanations.
+MedGamma is a medical-imaging demo app built around a React frontend, a FastAPI upload/conversion layer, and a Modal-hosted MedGemma inference service.
 
-![MedScan AI](https://img.shields.io/badge/AI-MedGemma%201.5-blue) ![GPU](https://img.shields.io/badge/GPU-A10G-green) ![React](https://img.shields.io/badge/React-18-61DAFB) ![License](https://img.shields.io/badge/License-MIT-yellow)
+It is designed for showcase use, not clinical use.
 
-## Live Demo
+## Current status
 
-**[https://medgamma.vercel.app](https://medgamma.vercel.app)** (coming soon)
+- The GitHub repo is live.
+- The README URL that previously pointed to `https://medgamma.vercel.app` is stale. I re-checked the URL on August 31, 2026, and it currently returns Vercel `DEPLOYMENT_NOT_FOUND`.
+- The app now runs through `frontend -> FastAPI backend -> Modal`. The frontend should point at the backend with `VITE_API_BASE_URL`, not directly at Modal.
 
----
+## What works in this repo
 
-## Features
+- Uploads for PNG, JPG, DICOM, and NIfTI
+- Backend-side preview generation for dataset formats that browsers cannot open directly
+- Single-study analysis through the backend and Modal
+- Current-vs-prior comparison through the backend and Modal
+- Seeded sample cases for MRI, chest X-ray, and CT
+- A preloaded GliODIL longitudinal MRI walkthrough for demos
 
-### Core Analysis
-- **Professional Radiology Reports**: Structured findings with medical terminology, differential diagnoses, and recommendations
-- **Simple Explanations**: Clear explanations for patients without medical jargon
-- **Multi-format Support**: PNG, JPG, DICOM files up to 100MB
+## Demo flow
 
-### Advanced Features
-- **Modality-Specific Analysis**: Optimized prompts for:
-  - Chest X-ray (systematic ABCDE review)
-  - Brain MRI (neuroradiology protocol)
-  - CT Abdomen/Pelvis (organ-by-organ)
-  - Musculoskeletal imaging
-  - General medical imaging
+On first launch, the app auto-loads a guided brain MRI progression walkthrough using a baseline and follow-up pair derived from `m1balcerak/GliODIL` case 539.
 
-- **Patient Context Integration**: Provide clinical history for more relevant analysis:
-  - Chief complaint & duration
-  - Age & sex
-  - Medical history (smoking, diabetes, etc.)
-  - Associated symptoms
+That walkthrough now:
 
-- **Visual Attention Heatmaps**: See which areas the AI focused on during analysis
+- opens with the follow-up study selected
+- pre-seeds both single-study reports
+- pre-seeds the interval comparison result
+- gives a simple three-step tour through follow-up, baseline, and progression views
 
-- **Multi-Image Comparison**: Compare current vs. prior studies for progression tracking
-
-- **PDF Export**: Generate downloadable clinical reports
-
-### UI/UX
-- Premium design with Instrument Serif + DM Sans typography
-- Smooth Framer Motion animations
-- Responsive layout for all devices
-
----
-
-## Quick Start
-
-### Option 1: Use the Live Demo
-Visit [https://medgamma.vercel.app](https://medgamma.vercel.app) - no setup required!
-
-### Option 2: Run Locally
-
-#### Prerequisites
-- Node.js 18+
-- Python 3.11+
-- [Modal](https://modal.com) account (free tier works)
-- [HuggingFace](https://huggingface.co) account
-
-#### Step 1: Clone & Install
-
-```bash
-git clone https://github.com/manan0308/MedGamma.git
-cd MedGamma
-
-# Frontend dependencies
-cd frontend && npm install && cd ..
-
-# Modal CLI
-pip install modal
-```
-
-#### Step 2: Accept MedGemma License
-
-Go to [MedGemma on HuggingFace](https://huggingface.co/google/medgemma-1.5-4b-it) and click **"Agree and access repository"**.
-
-#### Step 3: Deploy Modal Backend
-
-```bash
-# Login to Modal (opens browser)
-modal setup
-
-# Create HuggingFace token secret
-# Get your token from: https://huggingface.co/settings/tokens
-modal secret create huggingface-secret HF_TOKEN=hf_xxxxxxxxxxxxx
-
-# Deploy the inference endpoint
-modal deploy modal/modal_app.py
-```
-
-Copy the endpoint URL from the output:
-```
-https://YOUR_USERNAME--medgemma-inference-fastapi-app.modal.run
-```
-
-#### Step 4: Configure Frontend
-
-Create `frontend/.env.local`:
-
-```env
-VITE_MODAL_ENDPOINT=https://YOUR_USERNAME--medgemma-inference-fastapi-app.modal.run
-```
-
-Or edit `frontend/src/utils/api.js` directly:
-
-```javascript
-const MODAL_BASE_URL = 'https://YOUR_USERNAME--medgemma-inference-fastapi-app.modal.run';
-```
-
-#### Step 5: Run
-
-```bash
-cd frontend && npm run dev
-```
-
-Open http://localhost:5173
-
----
+You can also force the guided load with `?demo=1`.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Frontend (React + Vite)                       │
-│  - Upload Panel (drag & drop)                                    │
-│  - Patient Context Form                                          │
-│  - Modality Selector                                             │
-│  - Image Gallery & Viewer                                        │
-│  - Analysis Panel (Technical + Simple tabs)                      │
-│  - PDF Export                                                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼ Direct HTTPS (CORS enabled)
-┌─────────────────────────────────────────────────────────────────┐
-│              Modal Serverless GPU (A10G 24GB)                    │
-│                                                                  │
-│  Endpoints:                                                      │
-│  POST /analyze     - Single image analysis                       │
-│  POST /compare     - Two-image comparison                        │
-│                                                                  │
-│  Features:                                                       │
-│  - MedGemma 1.5 4B with bfloat16 precision                      │
-│  - Modality-specific prompt engineering                          │
-│  - Patient context integration                                   │
-│  - Attention heatmap generation                                  │
-│  - 120s idle timeout, then scales to zero                       │
-└─────────────────────────────────────────────────────────────────┘
+```text
+React frontend (Vite)
+  -> FastAPI backend (/api/upload, /api/analyze, /api/compare, /api/status)
+    -> Modal MedGemma inference service
 ```
 
----
+Why the backend exists:
 
-## API Reference
+- browser uploads need preprocessing and preview generation
+- DICOM and NIfTI need conversion before the current UI can display them
+- the frontend needs one stable API origin for uploads, previews, status, analysis, and comparison
 
-### POST /analyze
+## Local run
 
-Analyze a single medical image.
-
-```json
-{
-  "image_base64": "base64_encoded_image",
-  "mode": "both",           // "technical", "simple", or "both"
-  "modality": "chest_xray", // "chest_xray", "brain_mri", "ct_abdomen", "msk", "general"
-  "context": {              // Optional patient context
-    "chief_complaint": "Persistent cough",
-    "duration": "2 weeks",
-    "age": "45",
-    "sex": "Male",
-    "history": ["smoker", "hypertension"],
-    "symptoms": ["cough", "fever"]
-  },
-  "generate_heatmap": true  // Generate attention visualization
-}
-```
-
-**Response:**
-```json
-{
-  "technical": "**EXAMINATION**: Chest radiograph, PA view...",
-  "simple": "This chest X-ray shows your lungs and heart...",
-  "heatmap": "base64_encoded_heatmap_image"
-}
-```
-
-### POST /compare
-
-Compare current study with prior study.
-
-```json
-{
-  "current_image_base64": "base64_current",
-  "prior_image_base64": "base64_prior",
-  "modality": "chest_xray",
-  "context": { ... }
-}
-```
-
-**Response:**
-```json
-{
-  "comparison": "**INTERVAL CHANGES**: The consolidation in the right lower lobe has decreased...",
-  "current_heatmap": "base64_heatmap",
-  "prior_heatmap": "base64_heatmap"
-}
-```
-
----
-
-## Deployment
-
-### Deploy Frontend to Vercel
-
-1. Push to GitHub (already done)
-2. Go to [vercel.com](https://vercel.com)
-3. Import from GitHub: `manan0308/MedGamma`
-4. Set root directory to `frontend`
-5. Add environment variable:
-   ```
-   VITE_MODAL_ENDPOINT=https://manan0308--medgemma-inference-fastapi-app.modal.run
-   ```
-6. Deploy!
-
-### Deploy Your Own Modal Backend
+### 1. Frontend
 
 ```bash
-# Clone the repo
-git clone https://github.com/manan0308/MedGamma.git
-cd MedGamma
+cd frontend
+npm install
+cp .env.example .env.local
+```
 
-# Set up Modal
+Default frontend env:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8001
+```
+
+### 2. Backend
+
+```bash
+pip install -r backend/requirements.txt
+cd backend
+cp .env.example .env
+```
+
+Backend env:
+
+```env
+MODAL_ENDPOINT_URL=https://YOUR_MODAL_URL
+CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE_MB=100
+ALLOWED_EXTENSIONS=.dcm,.png,.jpg,.jpeg,.nii,.nii.gz
+```
+
+Start the backend:
+
+```bash
+cd backend
+uvicorn main:app --reload --port 8001
+```
+
+### 3. Modal
+
+Accept the MedGemma license on Hugging Face, then:
+
+```bash
 pip install modal
 modal setup
-
-# Create your HuggingFace secret
-modal secret create huggingface-secret HF_TOKEN=your_token_here
-
-# Deploy
+modal secret create huggingface-secret HF_TOKEN=hf_xxx
 modal deploy modal/modal_app.py
 ```
 
----
+Copy the deployed Modal URL into `backend/.env` as `MODAL_ENDPOINT_URL`.
 
-## Project Structure
+### 4. Start the frontend
 
-```
-MedGamma/
-├── frontend/                    # React application
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Header.jsx       # App header with status
-│   │   │   ├── UploadPanel.jsx  # Drag & drop upload
-│   │   │   ├── ImageGallery.jsx # Thumbnail grid
-│   │   │   ├── ImageViewer.jsx  # Full image with zoom
-│   │   │   ├── AnalysisPanel.jsx # Results display
-│   │   │   ├── ELI5Section.jsx  # Simple explanation
-│   │   │   ├── ContextForm.jsx  # Patient context input
-│   │   │   ├── ModalitySelector.jsx # Scan type dropdown
-│   │   │   ├── HeatmapOverlay.jsx   # Attention visualization
-│   │   │   ├── ComparisonView.jsx   # Side-by-side comparison
-│   │   │   └── PDFExport.jsx    # Report download
-│   │   ├── store/useStore.js    # Zustand state management
-│   │   ├── utils/api.js         # Modal API client
-│   │   ├── index.css            # Global styles
-│   │   └── App.jsx              # Main application
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.js
-├── modal/
-│   └── modal_app.py             # Modal serverless backend
-├── backend/                     # Optional FastAPI server
-└── README.md
+```bash
+cd frontend
+npm run dev
 ```
 
----
+Open `http://127.0.0.1:5173`.
 
-## Performance Notes
+## Hosted deployment
 
-### Cold Start
-First request takes **60-90 seconds** because Modal needs to:
-1. Start a GPU container
-2. Download MedGemma (~8GB)
-3. Load model into VRAM
+To make the public demo actually work:
 
-### Warm Requests
-Subsequent requests take **10-30 seconds** depending on:
-- Image size
-- Whether heatmap generation is enabled
-- Whether comparison mode is used
+1. Deploy the backend to a public host.
+2. Set `MODAL_ENDPOINT_URL` on that backend.
+3. Set `CORS_ALLOW_ORIGINS` to include the frontend domain.
+4. Set `VITE_API_BASE_URL` on the frontend to the public backend origin.
 
-### Cost (Modal Pay-as-you-go)
+Example:
 
-| Usage | Approximate Daily Cost |
-|-------|------------------------|
-| 5 analyses/day | ~$0.05 |
-| 20 analyses/day | ~$0.15 |
-| 100 analyses/day | ~$0.50 |
+```env
+# backend
+CORS_ALLOW_ORIGINS=https://your-demo.vercel.app
 
-Modal A10G costs ~$0.76/hour. Container stays warm for 2 minutes then shuts down.
+# frontend
+VITE_API_BASE_URL=https://your-api.example.com
+```
 
----
+Without those two env vars lined up, the frontend will look offline even if Modal is healthy.
 
-## Troubleshooting
+## Model notes
 
-| Problem | Solution |
-|---------|----------|
-| "Network Error" | Check Modal is deployed: `modal app list` |
-| CORS errors | Ensure you're using the `/analyze` and `/compare` routes |
-| Very slow first analysis | Cold start is normal (60-90s) |
-| "Model access denied" | Accept MedGemma license on HuggingFace |
-| Analysis timeout | Increase timeout in api.js (default 5 min) |
+This repo currently loads `google/medgemma-1.5-4b-it` inside Modal.
 
----
+That is a reasonable demo choice because it is lighter and already supports:
 
-## Tech Stack
+- CT and MRI volume-style tasks
+- longitudinal imaging workflows
+- chest X-ray reporting
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, Vite, Tailwind CSS |
-| State | Zustand |
-| UI Components | Radix UI |
-| Animations | Framer Motion |
-| Typography | Instrument Serif, DM Sans, IBM Plex Mono |
-| PDF | jsPDF |
-| ML Model | Google MedGemma 1.5 4B |
-| Infrastructure | Modal Labs (A10G GPU) |
+If you want a stronger but heavier upgrade path, the next obvious candidate is `google/medgemma-27b-it`.
 
----
+If you want classification, retrieval, or similarity search without text generation, Google recommends MedSigLIP instead of MedGemma.
 
-## Contributing
+## Important limitation
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
----
-
-## Disclaimer
-
-**FOR EDUCATIONAL PURPOSES ONLY**
-
-MedScan AI is a demonstration of AI capabilities in medical imaging. It is **NOT** intended for:
-- Clinical diagnosis
-- Medical decision-making
-- Treatment recommendations
-- Patient care decisions
-
-**Always consult qualified healthcare professionals for medical advice.**
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-MedGemma model usage is governed by [Google's Health AI Developer Terms](https://huggingface.co/google/medgemma-1.5-4b-it).
-
----
-
-## Acknowledgments
-
-- [Google Health AI](https://health.google/) for MedGemma
-- [Modal Labs](https://modal.com/) for serverless GPU infrastructure
-- [Anthropic](https://anthropic.com/) for Claude AI assistance in development
+MedGamma is for educational demos and workflow prototyping only. It is not a medical device and should not be used for diagnosis or treatment decisions.

@@ -48,6 +48,8 @@ export default function AnalysisDrawer() {
     coldStart,
     setColdStart,
     tweaks,
+    setComparisonMode,
+    setActivePane,
   } = useStore();
   const file = selected();
   const result = file ? results[file.id] : null;
@@ -191,11 +193,17 @@ export default function AnalysisDrawer() {
       {/* footer actions */}
       {result && (
         <div className="hairline-t px-4 py-3 flex items-center gap-2 shrink-0">
-          <button className="btn btn-sm">
+          <button className="btn btn-sm" onClick={() => setActivePane('export')}>
             <Icon name="download" size={12} />
             PDF
           </button>
-          <button className="btn btn-sm btn-ghost">
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              setComparisonMode(true);
+              setActivePane('compare');
+            }}
+          >
             <Icon name="compare" size={12} />
             Compare to prior
           </button>

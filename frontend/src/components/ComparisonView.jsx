@@ -82,6 +82,20 @@ function StatChip({ label, value }) {
   );
 }
 
+function WalkthroughStep({ step, title, body, actionLabel, onAction }) {
+  return (
+    <div className="surface-sunken p-3">
+      <div className="eyebrow mb-2">Step {step}</div>
+      <div className="text-[14px] text-ink mb-1">{title}</div>
+      <div className="text-[11px] text-muted leading-relaxed mb-3">{body}</div>
+      <button className="btn btn-xs" onClick={onAction}>
+        <Icon name="arrow-right" size={11} />
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
 export default function ComparisonView() {
   const {
     selected,
@@ -96,10 +110,25 @@ export default function ComparisonView() {
     patientContext,
     setError,
     clearError,
+    selectFile,
+    setComparisonMode,
+    setActivePane,
   } = useStore();
   const current = selected();
   const p = prior();
   const demoPair = getPairDemoMeta(current, p);
+
+  const openWorkspaceReport = (fileId) => {
+    if (!fileId) return;
+    selectFile(fileId);
+    setComparisonMode(false);
+    setActivePane('workspace');
+  };
+
+  const reopenComparison = () => {
+    setComparisonMode(true);
+    setActivePane('compare');
+  };
 
   const run = async () => {
     if (!current || !p) return;
@@ -165,21 +194,59 @@ export default function ComparisonView() {
       </div>
 
       {demoPair && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
+        <div className="grid gap-4">
+          <div className="surface p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+              <div className="flex-1">
+                <div className="eyebrow mb-2">Guided MRI Walkthrough</div>
+                <div className="font-display text-2xl leading-tight mb-2">
+                  A preloaded tumor-progression story you can demo hands-free.
+                </div>
+                <div className="text-[12px] text-muted leading-relaxed">
+                  This showcase uses a real GliODIL-derived baseline and follow-up pair. The app
+                  already staged both single-study reports plus the interval comparison so you can
+                  move through the case in a predictable order.
+                </div>
+              </div>
+              <div className="surface p-2 w-full lg:w-[220px]">
+                <img
+                  src={demoPair.overlayPreview}
+                  alt={`Overlay preview for ${demoPair.title}`}
+                  className="w-full aspect-[4/3] object-cover rounded"
+                />
+                <div className="text-[10px] font-mono text-faint mt-2">{demoPair.note}</div>
+              </div>
+            </div>
+            <div className="grid gap-3 mt-4 lg:grid-cols-3">
+              <WalkthroughStep
+                step="1"
+                title="Start with the follow-up MRI"
+                body="The later scan is selected by default and already has a seeded report, so you can begin with the more dramatic tumor burden."
+                actionLabel="Open follow-up report"
+                onAction={() => openWorkspaceReport(current?.id)}
+              />
+              <WalkthroughStep
+                step="2"
+                title="Jump back to the baseline study"
+                body="Switch to the earlier MRI to show the smaller lesion footprint before returning to the interval comparison."
+                actionLabel="Open prior report"
+                onAction={() => openWorkspaceReport(p?.id)}
+              />
+              <WalkthroughStep
+                step="3"
+                title="Return here for the progression summary"
+                body="This compare view already includes the quantitative delta, ratio, and prewritten interval change narrative."
+                actionLabel="Show interval comparison"
+                onAction={reopenComparison}
+              />
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <StatChip label="Case" value={`GliODIL ${demoPair.caseId}`} />
             <StatChip label="Baseline" value={`${demoPair.priorVolumeMl.toFixed(2)} mL`} />
             <StatChip label="Follow-up" value={`${demoPair.currentVolumeMl.toFixed(2)} mL`} />
             <StatChip label="Delta" value={`+${demoPair.deltaVolumeMl.toFixed(2)} mL`} />
             <StatChip label="Change" value={`${demoPair.ratio.toFixed(2)}x ${demoPair.trend}`} />
-          </div>
-          <div className="surface p-2">
-            <img
-              src={demoPair.overlayPreview}
-              alt={`Overlay preview for ${demoPair.title}`}
-              className="w-full aspect-[4/3] object-cover rounded"
-            />
-            <div className="text-[10px] font-mono text-faint mt-2">{demoPair.note}</div>
           </div>
         </div>
       )}

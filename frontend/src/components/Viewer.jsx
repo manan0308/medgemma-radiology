@@ -16,7 +16,7 @@ function Placeholder({ file }) {
 }
 
 export default function Viewer() {
-  const { selected, showHeatmap, setShowHeatmap, results, tweaks } = useStore();
+  const { selected, showHeatmap, setShowHeatmap, results, tweaks, setError } = useStore();
   const file = selected();
   const result = file ? results[file.id] : null;
   const [zoom, setZoom] = useState(1);
@@ -36,13 +36,35 @@ export default function Viewer() {
           <div className="eyebrow mb-3">No scan loaded</div>
           <h2 className="font-display text-4xl mb-2">A calmer second opinion.</h2>
           <p className="text-sm text-muted">
-            Drop a CT, MRI, or X-ray into the upload panel on the left. MedGamma returns a
-            structured radiology report and a plain-English explanation in under 30 seconds.
+            Launch the MRI walkthrough from the left for a zero-setup demo, or drop a CT, MRI, or
+            X-ray into the upload panel. First live runs can take up to 60-90 seconds while the
+            GPU wakes.
           </p>
         </div>
       </div>
     );
   }
+
+  const downloadPreview = async () => {
+    if (!file.preview) return;
+
+    try {
+      const response = await fetch(file.preview);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const baseName = file.name.replace(/\.[^.]+$/, '');
+
+      link.href = downloadUrl;
+      link.download = `${baseName || 'medgamma-preview'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch {
+      setError('Could not download the preview image.');
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0" style={{ margin: 16 }}>
@@ -70,9 +92,9 @@ export default function Viewer() {
               Heatmap
             </button>
           )}
-          <button className="btn btn-ghost btn-xs">
+          <button className="btn btn-ghost btn-xs" onClick={downloadPreview} disabled={!file.preview}>
             <Icon name="download" size={11} />
-            PNG
+            Preview PNG
           </button>
         </div>
 

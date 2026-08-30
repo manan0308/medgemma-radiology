@@ -17,12 +17,15 @@ import DisclaimerModal from './components/DisclaimerModal';
 import { getLongitudinalDemoSession, getSamplePack, SAMPLE_PACK_LIST } from './data/sample';
 import { deleteUploadedFile } from './utils/api';
 
+const DEMO_AUTOSTART_KEY = 'medgamma.demo.autostart.v1';
+
 function Sidebar() {
   const {
     comparisonMode,
     setComparisonMode,
     setComparisonTarget,
     setComparisonResult,
+    setResult,
     generateHeatmap,
     setGenerateHeatmap,
     files,
@@ -33,6 +36,7 @@ function Sidebar() {
     setModality,
     setPatientContext,
     setError,
+    setActivePane,
   } = useStore();
   const hasFiles = files.length > 0;
 
@@ -57,7 +61,10 @@ function Sidebar() {
     const added = addFiles(pack.files);
     setModality(pack.modality);
     setPatientContext(pack.patientContext || {});
-    if (added[0]) selectFile(added[0].id);
+    if (added[0]) {
+      selectFile(added[0].id);
+      if (added[0].resultTemplate) setResult(added[0].id, added[0].resultTemplate);
+    }
   };
 
   const loadLongitudinalDemo = async () => {
@@ -69,12 +76,16 @@ function Sidebar() {
     const current = added.find((file) => file.demoRole === 'current');
     setModality(demo.modality);
     setPatientContext(demo.patientContext);
+    if (prior?.resultTemplate) setResult(prior.id, prior.resultTemplate);
+    if (current?.resultTemplate) setResult(current.id, current.resultTemplate);
     if (current) selectFile(current.id);
     if (prior) setPriorFile(prior.id);
     setComparisonTarget('prior');
     setComparisonResult(demo.comparisonResult);
     setComparisonMode(true);
   };
+
+  const hasGuidedDemoLoaded = files.some((file) => file.demoPair?.key === 'gliodil-539-progression');
 
   return (
     <aside
@@ -89,18 +100,45 @@ function Sidebar() {
         style={hasFiles ? {} : { background: 'var(--sunken)' }}
       >
         <Icon name="spark" size={12} />
-        Load MRI progression demo
+        {hasGuidedDemoLoaded ? 'Reload MRI walkthrough' : 'Launch MRI walkthrough'}
       </button>
 
       {!hasFiles && (
         <div className="surface p-3 text-[11px] leading-relaxed text-muted">
-          Uses a real rendered baseline and follow-up pair from GliODIL case 539 so compare mode
-          opens ready to show interval tumor growth.
+          Uses a real rendered baseline and follow-up pair from GliODIL case 539. The guided demo
+          opens with both scans, prewritten reports, and interval progression already staged.
+        </div>
+      )}
+
+      {hasGuidedDemoLoaded && (
+        <div className="surface p-3 space-y-2">
+          <div className="eyebrow">Walkthrough Loaded</div>
+          <div className="text-[11px] text-muted leading-relaxed">
+            The follow-up MRI is selected, the prior study is pinned, and compare mode is ready to
+            narrate tumor progression without extra setup.
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-xs" onClick={() => setComparisonMode(true)}>
+              <Icon name="compare" size={11} />
+              Open compare
+            </button>
+            <button
+              className="btn btn-ghost btn-xs"
+              onClick={() => {
+                selectFile('gliodil-539-current');
+                setComparisonMode(false);
+                setActivePane('workspace');
+              }}
+            >
+              <Icon name="eye" size={11} />
+              Follow-up report
+            </button>
+          </div>
         </div>
       )}
 
       <div className="surface p-3 space-y-2">
-        <div className="eyebrow">Converted Dataset Samples</div>
+        <div className="eyebrow">Try Sample Cases</div>
         <div className="text-[11px] text-muted leading-relaxed">
           These are dataset-derived PNGs exported from `.parquet` and `.nii.gz`, so they load in
           the current app without extra conversion.
@@ -208,6 +246,43 @@ function ErrorBar() {
 export default function App() {
   useTweaksEffect();
   const { activePane } = useStore();
+  const files = useStore((state) => state.files);
+  const autoloadedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (autoloadedRef.current || files.length) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const forceDemo = ['1', 'true', 'yes'].includes((params.get('demo') || '').toLowerCase());
+    const shouldAutoload = forceDemo || !window.localStorage.getItem(DEMO_AUTOSTART_KEY);
+
+    if (!shouldAutoload) return;
+    autoloadedRef.current = true;
+
+    const bootstrapDemo = async () => {
+      const state = useStore.getState();
+      const demo = getLongitudinalDemoSession();
+      const added = state.addFiles(demo.files);
+      const prior = added.find((file) => file.demoRole === 'prior');
+      const current = added.find((file) => file.demoRole === 'current');
+
+      state.setModality(demo.modality);
+      state.setPatientContext(demo.patientContext);
+      if (prior?.resultTemplate) state.setResult(prior.id, prior.resultTemplate);
+      if (current?.resultTemplate) state.setResult(current.id, current.resultTemplate);
+      if (current) state.selectFile(current.id);
+      if (prior) state.setPriorFile(prior.id);
+      state.setComparisonTarget('prior');
+      state.setComparisonResult(demo.comparisonResult);
+      state.setComparisonMode(true);
+
+      if (!forceDemo) {
+        window.localStorage.setItem(DEMO_AUTOSTART_KEY, '1');
+      }
+    };
+
+    bootstrapDemo();
+  }, [files.length]);
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--paper)' }}>
